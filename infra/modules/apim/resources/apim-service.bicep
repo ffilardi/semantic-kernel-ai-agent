@@ -68,6 +68,7 @@ resource diagnosticSettings 'Microsoft.Insights/diagnosticsettings@2021-05-01-pr
   scope: apimService
   properties: {
     workspaceId: logAnalyticsWorkspaceId
+    logAnalyticsDestinationType: 'Dedicated'
     logs: [
         {
           category: null

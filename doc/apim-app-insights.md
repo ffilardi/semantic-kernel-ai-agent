@@ -6,6 +6,22 @@ This document explains how Application Insights diagnostics have been configured
 
 ## Implementation
 
+### Configuration Parameters
+
+The Azure Monitor diagnostics configuration leverages existing shared parameters in the AI Foundry API Bicep template (`infra/modules/apim/api/aifoundry-api.bicep`):
+
+```bicep
+// Shared diagnostics parameters (used by both Application Insights and Azure Monitor)
+param applicationInsightsLoggerName string = ''
+param enableApplicationInsightsDiagnostics bool = false
+param samplingPercentage int = 100
+param logClientIpAddress bool = true
+param alwaysLogErrors bool = true
+param verbosity string = 'information'
+param headersToLog string[] = []
+param payloadBytesToLog int = 8192
+```
+
 ### API Diagnostics Resource
 
 Added an `apiDiagnostics` resource in `/infra/modules/apim/api/aifoundry-api.bicep` that configures Application Insights logging for the AI Foundry API:
@@ -52,7 +68,7 @@ resource apiDiagnostics 'Microsoft.ApiManagement/service/apis/diagnostics@2024-0
     httpCorrelationProtocol: 'Legacy'
     verbosity: verbosity
     operationNameFormat: 'Name'
-    metrics: enableCustomMetrics
+    metrics: true
     alwaysLog: alwaysLogErrors ? 'allErrors' : 'none'
   }
 }
@@ -67,12 +83,25 @@ Added the following configurable parameters to the API module:
 - `samplingPercentage`: Sampling percentage (1-100, default: 100)
 - `logClientIpAddress`: Log client IP addresses (default: true)
 - `alwaysLogErrors`: Always log errors (default: true)
-- `enableCustomMetrics`: Enable custom metrics (default: true)
 - `verbosity`: Logging verbosity level (verbose/information/error, default: information)
 - `headersToLog`: Headers to log (default: empty)
 - `payloadBytesToLog`: Payload bytes to log (default: 8192, max: 8192)
 
 ### Module Integration
+
+The Application Insights diagnostics configuration is enabled through the AI module (`infra/modules/ai/ai.bicep`):
+
+```bicep
+module aiFoundryApi '../apim/api/aifoundry-api.bicep' = {
+  params: {
+    // ... existing parameters
+    applicationInsightsLoggerName: applicationInsightsLoggerName
+    enableApplicationInsightsDiagnostics: !empty(applicationInsightsLoggerName)
+  }
+}
+```
+
+To customize the Application Insights diagnostics settings, you can override the shared parameters when calling the module.
 
 Updated the module chain to pass the Application Insights logger name:
 
