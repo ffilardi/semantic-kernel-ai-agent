@@ -7,7 +7,6 @@ param identityType string = 'SystemAssigned'
 param modelDeployments array = []
 param projectName string = 'default-project'
 param projectDescription string = 'Default Project for ${name}'
-param aiSearchName string = ''
 param storageName string = ''
 param cosmosDbName string = ''
 param commonResourceGroupName string = ''
@@ -77,28 +76,6 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-previ
   properties: {
     displayName: projectName
     description: projectDescription
-  }
-}
-
-// Azure AI Search Connection
-resource aiSearch 'Microsoft.Search/searchServices@2025-02-01-Preview' existing = if (!empty(aiSearchName)) {
-  name: aiSearchName
-}
-
-resource aiSearchConnection 'Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview' = if (!empty(aiSearchName)) {
-  parent: project
-  name: '${projectName}-${aiSearchName}-connection'
-  properties: {
-    category: 'CognitiveSearch'
-    target: aiSearch.properties.endpoint
-    authType: 'AAD'
-    useWorkspaceManagedIdentity: false
-    metadata: {
-      type: 'azure_ai_search'
-      ApiType: 'Azure'
-      ResourceId: aiSearch.id
-      location: aiSearch.location
-    }
   }
 }
 

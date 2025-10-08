@@ -52,7 +52,6 @@ module monitor './modules/monitor/monitor.bicep' = {
 
 var commonResourceGroupName string = 'rg-common-${environment}-${token}'
 var vaultName string = 'kv-${environment}-${token}'
-var serviceBusName string = 'sb-${environment}-${token}'
 var storageName string = 'st${replace(environment,'-','')}${token}'
 var cosmosDbName string = 'cosmos-${environment}-${token}'
 
@@ -92,41 +91,6 @@ module cosmosDb './modules/cosmosdb/cosmosdb.bicep' = {
     tags: tags
     cosmosDbName: cosmosDbName
     logAnalyticsWorkspaceId: monitor.outputs.logAnalyticsWorkspaceId
-    databases: [
-      { name: 'database-01', container: 'db-01-container-01', partitionKey: '/field_id' }
-    ]
-  }
-}
-
-// ================================================================================
-// AI Services Deployment
-// ================================================================================
-
-var aiResourceGroupName string = 'rg-ai-${environment}-${token}'
-var aiSearchName string = 'srch-${environment}-${token}'
-var aiFoundryAccountName string = 'aif-${environment}-${token}'
-var aiFoundryProjectName string = 'proj-sample-01'
-
-resource aiResourceGroup 'Microsoft.Resources/resourceGroups@2024-11-01' = {
-  name: aiResourceGroupName
-  location: location
-  tags: tags
-}
-
-module ai 'modules/ai/ai.bicep' = {
-  name: 'ai-services'
-  scope: aiResourceGroup
-  params: {
-    location: location
-    tags: tags
-    aiSearchName: aiSearchName
-    aiFoundryAccountName: aiFoundryAccountName
-    aiFoundryProjectName: aiFoundryProjectName
-    storageName: storage.outputs.accountName
-    cosmosDbName: cosmosDb.outputs.cosmosDbName
-    logAnalyticsWorkspaceId: monitor.outputs.logAnalyticsWorkspaceId
-    commonResourceGroupName: commonResourceGroup.name
-    keyVaultName: keyVault.outputs.vaultName
   }
 }
 
@@ -136,14 +100,9 @@ module ai 'modules/ai/ai.bicep' = {
 
 var appResourceGroupName string = 'rg-app-${environment}-${token}'
 var apimServiceName string = 'apim-${environment}-${token}'
-var webAppName string = 'app-${environment}-${token}'
-var webAppServicePlanName string = 'plan-${webAppName}'
-var functionAppName string = 'func-${environment}-${token}'
-var functionAppServicePlanName string = 'plan-${functionAppName}'
-var functionAppStorageName string = 'st${replace(functionAppName,'-','')}'
-var logicAppName string = 'logic-${environment}-${token}'
-var logicAppServicePlanName string = 'plan-${logicAppName}'
-var logicAppStorageName string = 'st${replace(logicAppName,'-','')}'
+var webAppFrontendName string = 'app-frontend-${environment}-${token}'
+var webAppBackendName string = 'app-backend-${environment}-${token}'
+var webAppServicePlanName string = 'plan-app-${environment}-${token}'
 
 resource appResourceGroup 'Microsoft.Resources/resourceGroups@2024-11-01' = {
   name: appResourceGroupName
@@ -166,43 +125,56 @@ module apiManagement './modules/apim/apim.bicep' = {
   }
 }
 
-module serviceBus './modules/servicebus/servicebus.bicep' = {
-  name: 'servicebus'
-  scope: appResourceGroup
-  params: {
-    location: location
-    tags: tags
-    serviceBusName: serviceBusName
-    logAnalyticsWorkspaceId: monitor.outputs.logAnalyticsWorkspaceId
-    queues: [ { name: 'sbq-sample-01' } ]
-    topics: [ { name: 'sbt-sample-01' } ]
-  }
-}
-
 module appServices './modules/app/app.bicep' = {
   name: 'app-services'
   scope: appResourceGroup
   params: {
     location: location
     tags: tags
-    webAppName: webAppName
+    webAppFrontendName: webAppFrontendName
+    webAppBackendName: webAppBackendName
     webAppServicePlanName: webAppServicePlanName
-    functionAppName: functionAppName
-    functionAppServicePlanName: functionAppServicePlanName
-    functionAppStorageName: functionAppStorageName
-    logicAppName: logicAppName
-    logicAppServicePlanName: logicAppServicePlanName
-    logicAppStorageName: logicAppStorageName
     appInsightsConnectionString: monitor.outputs.applicationInsightsConnectionString
     logAnalyticsWorkspaceId: monitor.outputs.logAnalyticsWorkspaceId
     commonResourceGroupName: commonResourceGroup.name
-    aiResourceGroupName: aiResourceGroup.name
     keyVaultName: keyVault.outputs.vaultName
     cosmosDbName: cosmosDb.outputs.cosmosDbName
     apimServiceName: apiManagement.outputs.apimServiceName
-    serviceBusName: serviceBus.outputs.namespaceName
-    serviceBusHost: serviceBus.outputs.namespaceHost
-    aiFoundryName: ai.outputs.aiFoundryAccountName
+  }
+}
+
+// ================================================================================
+// AI Services Deployment
+// ================================================================================
+
+var aiResourceGroupName string = 'rg-ai-${environment}-${token}'
+var aiFoundryAccountName string = 'aif-${environment}-${token}'
+var aiFoundryProjectName string = 'proj-sample-01'
+
+resource aiResourceGroup 'Microsoft.Resources/resourceGroups@2024-11-01' = {
+  name: aiResourceGroupName
+  location: location
+  tags: tags
+}
+
+module ai 'modules/ai/ai.bicep' = {
+  name: 'ai-services'
+  scope: aiResourceGroup
+  params: {
+    primaryLocation: 'Australia East'
+    secondaryLocation: 'Australia East'
+    tags: tags
+    aiFoundryAccountName: aiFoundryAccountName
+    aiFoundryProjectName: aiFoundryProjectName
+    storageName: storage.outputs.accountName
+    cosmosDbName: cosmosDb.outputs.cosmosDbName
+    logAnalyticsWorkspaceId: monitor.outputs.logAnalyticsWorkspaceId
+    commonResourceGroupName: commonResourceGroup.name
+    keyVaultName: keyVault.outputs.vaultName
+    appResourceGroupName: appResourceGroup.name
+    apimServiceName: apiManagement.outputs.apimServiceName
+    apimServicePrincipalId: apiManagement.outputs.apimServicePrincipalId
+    applicationInsightsLoggerName: apiManagement.outputs.applicationInsightsLoggerName
   }
 }
 
@@ -212,6 +184,5 @@ output AZURE_RESOURCE_GROUP string = appResourceGroup.name
 // Output application hostnames
 output AZURE_APIM_HOSTNAME string = apiManagement.outputs.apimServiceHostName
 output AZURE_APIM_DEVELOPER_PORTAL string = apiManagement.outputs.apimServiceDeveloperPortalUrl
-output AZURE_WEB_APP_HOSTNAME string = appServices.outputs.webAppHostName
-output AZURE_FUNCTION_APP_HOSTNAME string = appServices.outputs.functionAppHostName
-output AZURE_LOGIC_APP_HOSTNAME string = appServices.outputs.logicAppHostName
+output AZURE_WEB_APP_FRONTEND_HOSTNAME string = appServices.outputs.webAppFrontendHostName
+output AZURE_WEB_APP_BACKEND_HOSTNAME string = appServices.outputs.webAppBackendHostName

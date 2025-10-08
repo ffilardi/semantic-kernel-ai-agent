@@ -2,29 +2,30 @@ param location string = resourceGroup().location
 param tags object = {}
 param name string
 param servicePlanId string
+param kind string
+param appSettings array = []
 param appInsightsConnectionString string = ''
 param logAnalyticsWorkspaceId string = ''
 param enableLogs bool = true
 param enableMetrics bool = true
 param enableAuditLogs bool = false
-
-var stagingSlots array = [
-  { name: 'staging-01' }
-]
+param stagingSlots array = []
+param linuxFxVersion string = ''
+param appCommandLine string = ''
+param healthCheckPath string = ''
 
 module app 'app-service.bicep' = {
   name: name
   params: {
     location: location
-    tags: union(tags, { 'azd-service-name': 'web-app' })
+    tags: tags
     name: name
     servicePlanId: servicePlanId
-    kind: 'app,linux'
-    linuxFxVersion: 'Python|3.12'
-    appCommandLine: 'python -m uvicorn main:app --host 0.0.0.0 --port 8000'
-    alwaysOn: true
-    healthCheckPath: '/health'
-    appSettings: [
+    kind: kind
+    linuxFxVersion: linuxFxVersion
+    appCommandLine: appCommandLine
+    healthCheckPath: healthCheckPath
+    appSettings: union([
       {
         name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
         value: appInsightsConnectionString
@@ -37,8 +38,7 @@ module app 'app-service.bicep' = {
         name: 'XDT_MicrosoftApplicationInsights_Mode'
         value: 'default'
       }
-    ]
-    appInsightsConnectionString: appInsightsConnectionString
+    ], appSettings)
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     diagnosticLogs: !empty(logAnalyticsWorkspaceId)
     ? [
@@ -83,13 +83,13 @@ module appStaging 'app-service-slot.bicep' = [for slot in stagingSlots: {
   name: '${name}-${slot.name}'
   params: {
     location: location
-    tags: union(tags, { 'azd-service-name': 'web-app-${slot.name}' })
+    tags: union(tags, { 'azd-service-name': '${name}-${slot.name}' })
     name: slot.name
     appServiceName: app.outputs.name
     servicePlanId: servicePlanId
-    kind: 'app,linux'
-    linuxFxVersion: 'Python|3.12'
-    appCommandLine: 'python -m uvicorn main:app --host 0.0.0.0 --port 8000'
+    kind: kind
+    linuxFxVersion: linuxFxVersion
+    appCommandLine: appCommandLine
     appSettings: [
       {
         name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'

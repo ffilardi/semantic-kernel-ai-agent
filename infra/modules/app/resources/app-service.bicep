@@ -6,7 +6,7 @@ param kind string
 param linuxFxVersion string = ''
 param netFrameworkVersion string = ''
 param appCommandLine string = ''
-param alwaysOn bool = false
+param alwaysOn bool = true
 param appSettings array = []
 param identityType string = 'SystemAssigned'
 param ftpsState string = 'Disabled'
@@ -24,12 +24,11 @@ param clientCertMode string = 'Required'
 param publicNetworkAccess string = 'Enabled'
 param healthCheckPath string = ''
 param fileSystemLogLevel string = 'Error'
-param fileSystemDetailedErrorMessages bool = false
+param fileSystemDetailedErrorMessages bool = true
 param fileSystemFailedRequestsTracing bool = false
-param fileSystemHttpLogsEnabled bool = false
-param fileSystemRetentionInDays int = 1
+param fileSystemHttpLogsEnabled bool = true
+param fileSystemRetentionInDays int = 7
 param fileSystemRetentionInMb int = 35
-param appInsightsConnectionString string = ''
 param logAnalyticsWorkspaceId string = ''
 param diagnosticLogs array = []
 param diagnosticMetrics array = []
@@ -56,10 +55,6 @@ resource app 'Microsoft.Web/sites@2024-04-01' = {
       cors: { allowedOrigins: allowedOrigins }
       appSettings: union(appSettings,
         [
-          {
-            name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
-            value: appInsightsConnectionString
-          }
           {
             name: 'SCM_DO_BUILD_DURING_DEPLOYMENT'
             value: buildOnDeployment

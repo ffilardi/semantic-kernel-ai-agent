@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semantic Kernel AI Agent</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="https://kit.fontawesome.com/039f4a02e9.js" crossorigin="anonymous"></script>
+</head>
+
+<body>
+    <div class="app-container">
+        <div class="side-panel">
+            <h2>Settings</h2>
+            <form id="user-form">
+                <label for="backend_url">Connected to:</label>
+                <input type="text" id="backend_url" value="{{ backend_url }}" readonly class="readonly" style="margin-bottom:12px;">
+                <label for="session_id">Session ID:</label>
+                <input type="text" id="session_id" name="session_id" readonly class="readonly" style="margin-bottom:12px;">
+                <label for="user_name">User Name (optional):</label>
+                <input type="text" id="user_name" name="user_name" placeholder="Enter your name..." style="margin-bottom:12px;">
+                <button type="submit">Start New Session</button>
+            </form>
+        </div>
+        <div class="chat-container">
+            <div class="chat-header">
+                <h1>Semantic Kernel AI Agent</h1>
+            </div>
+            <div class="chat-window" id="chat-window">
+                <!-- Chat messages will be appended here dynamically -->
+            </div>
+            <div class="chat-input">
+                <textarea id="message" placeholder="Type your message... (Enter to send, Shift+Enter for newline)" rows="3"></textarea>
+                <button id="send-button">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            generateSessionId();
+        });
+
+        document.getElementById('send-button').addEventListener('click', sendMessage);
+        document.getElementById('user-form').addEventListener('submit', startNewSession);
+        const messageBox = document.getElementById('message');
+        messageBox.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        function generateSessionId() {
+            const sessionIdInput = document.getElementById('session_id');
+            sessionIdInput.value = crypto.randomUUID();
+        }
+
+        function sendMessage() {
+            const messageInput = document.getElementById('message');
+            const message = messageInput.value.trim();
+            const sessionId = document.getElementById('session_id').value;
+            const userName = document.getElementById('user_name').value.trim();
+
+            if (message === '') return;
+
+            // Use the user name if provided, otherwise default to 'User'
+            const displayName = userName || 'User';
+            appendMessage('user', displayName, message);
+            messageInput.value = '';
+
+            // Prepare request payload
+            const requestPayload = {
+                session_id: sessionId,
+                chat_input: message
+            };
+
+            // Include user name in payload if provided
+            if (userName) {
+                requestPayload.user_name = userName;
+            }
+
+            fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestPayload)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    alert(response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                appendMessage('agent', 'Agent', data.agent_response, true, data.response_id, data.used_tools || [], data.tokenUsage);
+            })
+            .catch(error => {
+                console.error('There was a problem with the fetch operation:', error);
+            });
+        }
+
+    function appendMessage(sender, senderName, message, isMarkdown = false, responseId = null, usedTools = null, tokenUsage = null) {
+            const chatWindow = document.getElementById('chat-window');
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('chat-message', sender);
+            // Preserve original message (markdown or plain) for copy action
+            messageElement.dataset.rawMessage = message;
+
+            const senderNameElement = document.createElement('div');
+            senderNameElement.classList.add('message-sender');
+            senderNameElement.textContent = senderName + ':';
+
+            const messageText = document.createElement('div');
+            messageText.classList.add('message-text');
+            messageText.innerHTML = isMarkdown ? marked.parse(message) : message.replace(/\n|\r/g, '<br>');
+            // Force markdown links to open in new tab and be safe
+            messageText.querySelectorAll('a').forEach(a => {
+                a.setAttribute('target', '_blank');
+                a.setAttribute('rel', 'noopener noreferrer');
+            });
+
+            messageElement.append(senderNameElement, messageText);
+
+            if (sender !== 'user' && Array.isArray(usedTools) && usedTools.length > 0) {
+                const toolsContainer = document.createElement('div');
+                toolsContainer.classList.add('tools-used');
+                const label = document.createElement('div');
+                label.classList.add('tools-used-label');
+                label.textContent = 'Tools used:';
+                const list = document.createElement('ul');
+                usedTools.forEach(t => {
+                    const li = document.createElement('li');
+                    li.textContent = t;
+                    list.appendChild(li);
+                });
+                toolsContainer.append(label, list);
+                messageElement.appendChild(toolsContainer);
+            }
+
+            // Display token usage information for agent responses
+            if (sender !== 'user' && tokenUsage) {
+                const tokenContainer = document.createElement('div');
+                tokenContainer.classList.add('token-usage');
+                const label = document.createElement('div');
+                label.classList.add('token-usage-label');
+                label.textContent = 'Token Usage:';
+                const tokenInfo = document.createElement('div');
+                tokenInfo.classList.add('token-usage-info');
+                tokenInfo.innerHTML = `
+                    <span class="token-stat">Prompt: ${tokenUsage.prompt_tokens}</span>
+                    <span class="token-stat">Completion: ${tokenUsage.completion_tokens}</span>
+                    <span class="token-stat">Total: ${tokenUsage.total_tokens}</span>
+                `;
+                tokenContainer.append(label, tokenInfo);
+                messageElement.appendChild(tokenContainer);
+            }
+
+            const icon = document.createElement('div');
+            icon.classList.add('message-icon');
+            if (sender === 'user') {
+                icon.innerHTML = '<i class="fas fa-user"></i>';
+            } else {
+                icon.innerHTML = '<i class="fas fa-robot"></i>';
+            }
+            messageElement.prepend(icon);
+
+            // Action bar (copy + feedback if agent)
+            const actionBar = document.createElement('div');
+            actionBar.classList.add('message-action-bar');
+            // Copy button (both user and agent)
+            const copyBtn = document.createElement('button');
+            copyBtn.classList.add('copy-button');
+            copyBtn.type = 'button';
+            copyBtn.title = 'Copy message to clipboard';
+            copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
+            copyBtn.addEventListener('click', () => copyMessage(copyBtn));
+            actionBar.appendChild(copyBtn);
+
+            if (responseId) {
+                const feedbackContainer = document.createElement('span');
+                feedbackContainer.classList.add('feedback-buttons');
+                feedbackContainer.innerHTML = `
+                        <i class="fas fa-thumbs-up" onclick="sendFeedback('${responseId}', 1)"></i>
+                        <i class="fas fa-thumbs-down" onclick="sendFeedback('${responseId}', 0)"></i>
+                `;
+                actionBar.appendChild(feedbackContainer);
+            }
+            messageElement.appendChild(actionBar);
+
+            chatWindow.appendChild(messageElement);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        function startNewSession(event) {
+            event.preventDefault();
+            generateSessionId();
+            document.getElementById('chat-window').innerHTML = '';
+            document.getElementById('message').value = '';
+        }
+
+        function sendFeedback(responseId, feedbackRating) {
+            alert('Not implemented'); return;
+            const sessionId = document.getElementById('session_id').value;
+            fetch('/feedback', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    id: responseId,
+                    session_id: sessionId,
+                    feedback_rating: feedbackRating
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    alert(response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                alert(data.status);
+            })
+            .catch(error => {
+                console.error('There was a problem with the fetch operation:', error);
+            });
+        }
+
+        function copyMessage(buttonEl) {
+            const msgEl = buttonEl.closest('.chat-message');
+            if (!msgEl) return;
+            const raw = msgEl.dataset.rawMessage || msgEl.querySelector('.message-text')?.innerText || '';
+            if (!raw) return;
+            navigator.clipboard.writeText(raw).then(() => {
+                const original = buttonEl.innerHTML;
+                buttonEl.innerHTML = '<i class="fas fa-check"></i>';
+                buttonEl.classList.add('copied');
+                setTimeout(() => {
+                    buttonEl.innerHTML = original;
+                    buttonEl.classList.remove('copied');
+                }, 1500);
+            }).catch(() => {
+                // Fallback: select text
+                const range = document.createRange();
+                const textNode = msgEl.querySelector('.message-text');
+                if (textNode) {
+                    range.selectNodeContents(textNode);
+                    const sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>

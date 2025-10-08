@@ -36,3 +36,4 @@ output apimServiceName string = apimService.outputs.name
 output apimServiceHostName string = apimService.outputs.hostName
 output apimServiceDeveloperPortalUrl string = apimService.outputs.developerPortalUrl
 output apimServicePrincipalId string = apimService.outputs.principalId
+output applicationInsightsLoggerName string = apimService.outputs.applicationInsightsLoggerName

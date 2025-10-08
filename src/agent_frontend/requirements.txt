@@ -1,0 +1,7 @@
+# Core runtime
+python-dotenv
+fastapi
+uvicorn
+gunicorn
+jinja2
+httpx

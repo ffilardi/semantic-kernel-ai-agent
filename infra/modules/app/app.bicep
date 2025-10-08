@@ -1,62 +1,119 @@
 param location string = resourceGroup().location
 param tags object = {}
-param webAppName string
+param webAppFrontendName string
+param webAppBackendName string
 param webAppServicePlanName string
-param functionAppName string
-param functionAppServicePlanName string
-param functionAppStorageName string
-param logicAppName string
-param logicAppServicePlanName string
-param logicAppStorageName string
 param logAnalyticsWorkspaceId string = ''
 param appInsightsConnectionString string = ''
 param commonResourceGroupName string = ''
-param aiResourceGroupName string = ''
 param keyVaultName string = ''
 param cosmosDbName string = ''
 param apimServiceName string = ''
-param serviceBusName string = ''
-param serviceBusHost string = ''
-param aiFoundryName string = ''
 
-// Web App
+// Base Resources
+
+resource apim 'Microsoft.ApiManagement/service@2024-05-01' existing = if(!empty(apimServiceName)) {
+  name: apimServiceName
+}
+
+resource cosmosDb 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' existing = if(!empty(cosmosDbName) && !empty(commonResourceGroupName)) {
+  name: cosmosDbName
+  scope: resourceGroup(commonResourceGroupName)
+}
+
+// Vault Secrets
+
+module apimVaultSecret '../keyvault/resources/secret.bicep' = if (!empty(apim.name) && !empty(keyVaultName) && !empty(commonResourceGroupName)) {
+  name: 'apim-secret'
+  scope: resourceGroup(commonResourceGroupName)
+  params: {
+    vaultName: keyVaultName
+    secretName: 'apim-aifoundry-api-key'
+    secretValue: !empty(apim.name) ? listSecrets('${apim.id}/subscriptions/master', '2024-05-01').primaryKey : ''
+  }
+}
+
+module cosmosDbVaultSecret '../keyvault/resources/secret.bicep' = if (!empty(cosmosDb.name) && !empty(keyVaultName) && !empty(commonResourceGroupName)) {
+  name: 'cosmosdb-secret'
+  scope: resourceGroup(commonResourceGroupName)
+  params: {
+    vaultName: keyVaultName
+    secretName: 'cosmos-db-key'
+    secretValue: cosmosDb.listKeys().primaryMasterKey
+  }
+}
+
+// App Service Plan
+
 module webAppServicePlan './resources/app-service-plan.bicep' = {
   name: 'web-app-service-plan'
   params: {
     location: location
     tags: tags
     name: webAppServicePlanName
-    sku: 'Standard'
-    skuCode: 'S1'
+    sku: 'Basic'
+    skuCode: 'B3'
     kind: 'linux'
     reserved: true
   }
 }
 
-module webApp './resources/web-app.bicep' = {
-  name: 'web-app'
+// Agent Backend
+
+module webAppBackend './resources/web-app.bicep' = {
+  name: 'agent-backend'
   params: {
     location: location
-    tags: tags
-    name: webAppName
+    tags: union(tags, { 'azd-service-name': 'agent-backend' })
+    name: webAppBackendName
     servicePlanId: webAppServicePlan.outputs.id
+    kind: 'app,linux'
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     appInsightsConnectionString: appInsightsConnectionString
+    linuxFxVersion: 'PYTHON|3.12'
+    appCommandLine: 'python3 -m gunicorn app:app -k uvicorn.workers.UvicornWorker'
+    healthCheckPath: '/ping'
+    appSettings: [
+      {
+        name: 'APIM_GATEWAY_ENDPOINT'
+        value: !empty(apim.name) ? apim.properties.gatewayUrl : ''
+      }
+      {
+        name: 'APIM_SUBSCRIPTION_KEY'
+        value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=apim-aifoundry-api-key)'
+      }
+      {
+        name: 'AI_MODEL_DEPLOYMENT'
+        value: 'gpt-4.1-mini'
+      }
+      {
+        name: 'COSMOS_ENDPOINT'
+        value: !empty(cosmosDb.name) ? cosmosDb.properties.documentEndpoint : ''
+      }
+      {
+        name: 'COSMOS_KEY'
+        value: !empty(cosmosDbVaultSecret.outputs.reference) ? cosmosDbVaultSecret.outputs.reference : ''
+      }
+      {
+        name: 'LEARN_MCP_URL'
+        value: 'https://learn.microsoft.com/api/mcp'
+      }
+    ]
   }
 }
 
-module webAppRbac01 '../security/keyvault-rbac.bicep' = if (!empty(commonResourceGroupName) && !empty(keyVaultName)) {
-  name: '${webAppName}-rbac-01'
+module webAppBackendRbac01 '../security/keyvault-rbac.bicep' = if (!empty(commonResourceGroupName) && !empty(keyVaultName)) {
+  name: '${webAppBackendName}-rbac-01'
   scope: resourceGroup(commonResourceGroupName)
   params: {
     serviceName: keyVaultName
     roleNames: [ 'Key Vault Secrets User' ]
-    principalId: webApp.outputs.appPrincipalId
+    principalId: webAppBackend.outputs.appPrincipalId
   }
 }
 
-module webAppRbac02 '../security/cosmosdb-rbac.bicep' = if (!empty(commonResourceGroupName) && !empty(cosmosDbName)) {
-  name: '${webAppName}-rbac-02'
+module webAppBackendRbac02 '../security/cosmosdb-rbac.bicep' = if (!empty(commonResourceGroupName) && !empty(cosmosDbName)) {
+  name: '${webAppBackendName}-rbac-02'
   scope: resourceGroup(commonResourceGroupName)
   params: {
     serviceName: cosmosDbName
@@ -64,180 +121,50 @@ module webAppRbac02 '../security/cosmosdb-rbac.bicep' = if (!empty(commonResourc
       'Cosmos DB Operator'
       'Cosmos DB Account Reader Role'
     ]
-    principalId: webApp.outputs.appPrincipalId
+    principalId: webAppBackend.outputs.appPrincipalId
   }
 }
 
-module webAppRbac03 '../security/aifoundry-rbac.bicep' = if (!empty(aiResourceGroupName) && !empty(aiFoundryName)) {
-  name: '${webAppName}-rbac-03'
-  scope: resourceGroup(aiResourceGroupName)
-  params: {
-    serviceName: aiFoundryName
-    roleNames: [ 'Azure AI User' ]
-    principalId: webApp.outputs.appPrincipalId
-  }
-}
+// Agent Frontend
 
-module webApi '../apim/api/web-api.bicep' = if (apimServiceName != '') {
-  name: 'web-app-api'
-  params: {
-    apimServiceName: apimServiceName
-    backendUrl: '${webApp.outputs.appHostName}/api'
-    backendResourceId: webApp.outputs.appId
-  }
-}
-
-// Function App
-module functionAppStorage '../storage/storage.bicep' = {
-  name: 'function-app-storage'
+module webAppFrontend './resources/web-app.bicep' = {
+  name: 'agent-frontend'
   params: {
     location: location
-    tags: tags
-    storageName: functionAppStorageName
-    logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
-  }
-}
-
-module functionAppServicePlan './resources/app-service-plan.bicep' = {
-  name: 'function-app-service-plan'
-  params: {
-    location: location
-    tags: tags
-    name: functionAppServicePlanName
-    sku: 'Standard'
-    skuCode: 'S1'
-    kind: 'linux'
-    reserved: true
-  }
-}
-
-module functionApp './resources/function-app.bicep' = {
-  name: 'function-app'
-  params: {
-    location: location
-    tags: tags
-    name: functionAppName
-    servicePlanId: functionAppServicePlan.outputs.id
-    storageAccountName: functionAppStorage.outputs.accountName
-    serviceBusHost: serviceBusHost
+    tags: union(tags, { 'azd-service-name': 'agent-frontend' })
+    name: webAppFrontendName
+    servicePlanId: webAppServicePlan.outputs.id
+    kind: 'app,linux'
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     appInsightsConnectionString: appInsightsConnectionString
+    linuxFxVersion: 'PYTHON|3.12'
+    appCommandLine: 'python3 -m gunicorn app:app -k uvicorn.workers.UvicornWorker'
+    healthCheckPath: '/ping'
+    appSettings: [
+      {
+        name: 'AGENT_BACKEND_CHAT_URL'
+        value: (!empty(apimServiceName)) ? '${webAppBackend.outputs.appHostName}/chat' : ''
+      }
+    ]
   }
 }
 
-module functionAppRbac01 '../security/keyvault-rbac.bicep' = if (!empty(commonResourceGroupName) && !empty(keyVaultName)) {
-  name: '${functionAppName}-rbac-01'
+module webAppFrontendRbac01 '../security/keyvault-rbac.bicep' = if (!empty(commonResourceGroupName) && !empty(keyVaultName)) {
+  name: '${webAppFrontendName}-rbac-01'
   scope: resourceGroup(commonResourceGroupName)
   params: {
     serviceName: keyVaultName
     roleNames: [ 'Key Vault Secrets User' ]
-    principalId: functionApp.outputs.appPrincipalId
+    principalId: webAppFrontend.outputs.appPrincipalId
   }
 }
 
-module functionAppRbac02 '../security/servicebus-rbac.bicep' = if (!empty(commonResourceGroupName) && !empty(serviceBusName)) {
-  name: '${functionAppName}-rbac-02'
-  params: {
-    serviceName: serviceBusName
-    roleNames: [ 'Azure Service Bus Data Owner' ]
-    principalId: functionApp.outputs.appPrincipalId
-  }
-}
+output webAppFrontendId string = webAppFrontend.outputs.appId
+output webAppFrontendName string = webAppFrontend.outputs.appName
+output webAppFrontendHostName string = webAppFrontend.outputs.appHostName
+output webAppFrontendPrincipalId string = webAppFrontend.outputs.appPrincipalId
 
-module functionAppRbac03 '../security/aifoundry-rbac.bicep' = if (!empty(aiResourceGroupName) && !empty(aiFoundryName)) {
-  name: '${functionAppName}-rbac-03'
-  scope: resourceGroup(aiResourceGroupName)
-  params: {
-    serviceName: aiFoundryName
-    roleNames: [ 'Azure AI User' ]
-    principalId: functionApp.outputs.appPrincipalId
-  }
-}
-
-module functionApi '../apim/api/function-api.bicep' = if (apimServiceName != '') {
-  name: 'function-app-api'
-  params: {
-    apimServiceName: apimServiceName
-    backendUrl: '${functionApp.outputs.appHostName}/api'
-    backendResourceId: functionApp.outputs.appId
-  }
-}
-
-// Logic App
-module logicAppStorage '../storage/storage.bicep' = {
-  name: 'logic-app-storage'
-  params: {
-    location: location
-    tags: tags
-    storageName: logicAppStorageName
-    logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
-  }
-}
-
-module logicAppServicePlan './resources/app-service-plan.bicep' = {
-  name: 'logic-app-service-plan'
-  params: {
-    location: location
-    tags: tags
-    name: logicAppServicePlanName
-    sku: 'WorkflowStandard'
-    skuCode: 'WS1'
-    reserved: false
-  }
-}
-
-module logicApp './resources/logic-app.bicep' = {
-  name: 'logic-app'
-  params: {
-    location: location
-    tags: tags
-    name: logicAppName
-    servicePlanId: logicAppServicePlan.outputs.id
-    storageAccountName: logicAppStorage.outputs.accountName
-    serviceBusHost: serviceBusHost
-    logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
-    appInsightsConnectionString: appInsightsConnectionString
-  }
-}
-
-module logicAppRbac01 '../security/keyvault-rbac.bicep' = if (!empty(commonResourceGroupName) && !empty(keyVaultName)) {
-  name: '${logicAppName}-rbac-01'
-  scope: resourceGroup(commonResourceGroupName)
-  params: {
-    serviceName: keyVaultName
-    roleNames: [ 'Key Vault Secrets User' ]
-    principalId: logicApp.outputs.appPrincipalId
-  }
-}
-
-module logicAppRbac02 '../security/servicebus-rbac.bicep' = if (!empty(commonResourceGroupName) && !empty(serviceBusName)) {
-  name: '${logicAppName}-rbac-02'
-  params: {
-    serviceName: serviceBusName
-    roleNames: [ 'Azure Service Bus Data Owner' ]
-    principalId: logicApp.outputs.appPrincipalId
-  }
-}
-
-module logicAppRbac03 '../security/aifoundry-rbac.bicep' = if (!empty(aiResourceGroupName) && !empty(aiFoundryName)) {
-  name: '${logicAppName}-rbac-03'
-  scope: resourceGroup(aiResourceGroupName)
-  params: {
-    serviceName: aiFoundryName
-    roleNames: [ 'Azure AI User' ]
-    principalId: logicApp.outputs.appPrincipalId
-  }
-}
-
-output webAppId string = webApp.outputs.appId
-output webAppName string = webApp.outputs.appName
-output webAppHostName string = webApp.outputs.appHostName
-output webAppPrincipalId string = webApp.outputs.appPrincipalId
-output functionAppId string = functionApp.outputs.appId
-output functionAppName string = functionApp.outputs.appName
-output functionAppHostName string = functionApp.outputs.appHostName
-output functionAppPrincipalId string = functionApp.outputs.appPrincipalId
-output logicAppId string = logicApp.outputs.appId
-output logicAppName string = logicApp.outputs.appName
-output logicAppHostName string = logicApp.outputs.appHostName
-output logicAppPrincipalId string = logicApp.outputs.appPrincipalId
+output webAppBackendId string = webAppBackend.outputs.appId
+output webAppBackendName string = webAppBackend.outputs.appName
+output webAppBackendHostName string = webAppBackend.outputs.appHostName
+output webAppBackendPrincipalId string = webAppBackend.outputs.appPrincipalId

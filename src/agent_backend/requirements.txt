@@ -1,0 +1,9 @@
+# Core runtime
+semantic-kernel[mcp]
+python-dotenv
+fastapi
+uvicorn
+gunicorn
+pydantic
+azure-cosmos >= 4.4.0
+azure-identity

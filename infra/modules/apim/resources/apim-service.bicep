@@ -95,3 +95,4 @@ output publicIPAddresses string = apimService.properties.publicIPAddresses[0]
 output hostName string = apimService.properties.hostnameConfigurations[0].hostName
 output developerPortalUrl string = replace(apimService.properties.developerPortalUrl, 'https://', '')
 output principalId string = apimService.identity.principalId
+output applicationInsightsLoggerName string = (!empty(applicationInsightsId) && !empty(applicationInsightsInstrumentationKey)) ? apimLogger.name : ''

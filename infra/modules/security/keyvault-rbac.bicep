@@ -16,7 +16,7 @@ resource service 'Microsoft.KeyVault/vaults@2021-10-01' existing = {
 
 resource roleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = [for roleDefinitionId in roleDefinitionIds: {
   scope: service
-  name: guid(subscription().id, principalId, roleDefinitionId)
+  name: guid(subscription().id, serviceName, principalId, roleDefinitionId)
   properties: {
     principalId: principalId
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleDefinitionId)

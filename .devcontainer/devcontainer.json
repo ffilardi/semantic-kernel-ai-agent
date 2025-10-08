@@ -1,5 +1,5 @@
 {
-    "name": "Azure Apps & Integration Sandbox",
+    "name": "Azure AI Agent Dev Container",
     "image": "mcr.microsoft.com/devcontainers/python:dev-3.12-bullseye",
     "features": {
         "ghcr.io/devcontainers/features/azure-cli:latest": {},
@@ -25,7 +25,11 @@
     "postCreateCommand": "bash .devcontainer/install-requirements.sh",
     "portsAttributes": {
         "8000": {
-            "label": "Application",
+            "label": "Agent Backend",
+            "onAutoForward": "notify"
+        },
+        "8001": {
+        "label": "Agent Frontend",
             "onAutoForward": "notify"
         }
     },

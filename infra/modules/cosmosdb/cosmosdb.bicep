@@ -4,7 +4,6 @@ param cosmosDbName string
 param logAnalyticsWorkspaceId string = ''
 param databases array = []
 
-
 module account './resources/account.bicep' = {
   name: cosmosDbName
   params: {

@@ -1,19 +1,14 @@
-name: azure-ais
+name: sk-agent
 metadata:
   template: azure-ais@0.0.1-beta
 infra:
     provider: "bicep"
 services:
-  web-app:
-    project: src/web-app/
+  agent-frontend:
+    project: src/agent_frontend/
     language: py
     host: appservice
-  function-app:
-    project: src/function-app/
+  agent-backend:
+    project: src/agent_backend/
     language: py
     host: appservice
-  logic-app:
-    project: src/logic-app/
-    language: py
-    host: appservice
-

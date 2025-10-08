@@ -17,4 +17,7 @@ else
   done
 fi
 
+echo "[devcontainer] Installing latest Azure Developer CLI (azd)..."
+curl -fsSL https://aka.ms/install-azd.sh | bash
+
 echo "[devcontainer] Dependency installation complete."

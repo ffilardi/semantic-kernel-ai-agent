@@ -1,6 +1,0 @@
-{
-    "QueueName": {
-        "type": "String",
-        "value": "sbq-sample-01"
-    }
-}
