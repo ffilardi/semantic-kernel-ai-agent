@@ -1,0 +1,29 @@
+openapi: 3.0.1
+info:
+  title: Sample Function API
+  description: Sample Function API backend service
+  version: v1
+servers:
+  - url: https://{apim-instance}.azure-api.net/function/v1
+paths:
+  /helloworld:
+    get:
+      summary: helloworld
+      description: Azure Function API Hello World
+      operationId: helloworld
+      responses:
+        '200':
+          description: ''
+components:
+  securitySchemes:
+    apiKeyHeader:
+      type: apiKey
+      name: Ocp-Apim-Subscription-Key
+      in: header
+    apiKeyQuery:
+      type: apiKey
+      name: subscription-key
+      in: query
+security:
+  - apiKeyHeader: [ ]
+  - apiKeyQuery: [ ]

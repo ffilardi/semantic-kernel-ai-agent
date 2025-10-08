@@ -1,0 +1,29 @@
+openapi: 3.0.1
+info:
+  title: Sample Web API
+  description: Sample Web API backend service
+  version: v1
+servers:
+  - url: https://{apim-instance}.azure-api.net/web/v1
+paths:
+  /helloworld:
+    get:
+      summary: helloworld
+      description: Azure Web API Hello World
+      operationId: helloworld
+      responses:
+        '200':
+          description: ''
+components:
+  securitySchemes:
+    apiKeyHeader:
+      type: apiKey
+      name: Ocp-Apim-Subscription-Key
+      in: header
+    apiKeyQuery:
+      type: apiKey
+      name: subscription-key
+      in: query
+security:
+  - apiKeyHeader: [ ]
+  - apiKeyQuery: [ ]

@@ -1,0 +1,19 @@
+name: azure-ais
+metadata:
+  template: azure-ais@0.0.1-beta
+infra:
+    provider: "bicep"
+services:
+  web-app:
+    project: src/web-app/
+    language: py
+    host: appservice
+  function-app:
+    project: src/function-app/
+    language: py
+    host: appservice
+  logic-app:
+    project: src/logic-app/
+    language: py
+    host: appservice
+

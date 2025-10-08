@@ -1,0 +1,88 @@
+{
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "actions": {
+            "Catch": {
+                "type": "Scope",
+                "actions": {
+                    "Dead-letter_the_message_in_a_queue": {
+                        "type": "ServiceProvider",
+                        "inputs": {
+                            "parameters": {
+                                "queueName": "@parameters('QueueName')",
+                                "lockToken": "@triggerBody()?['lockToken']",
+                                "deadLetterReason": "Error",
+                                "deadLetterErrorDescription": "Failure processing workflow"
+                            },
+                            "serviceProviderConfiguration": {
+                                "connectionName": "serviceBus",
+                                "operationId": "deadLetterQueueMessageV2",
+                                "serviceProviderId": "/serviceProviders/serviceBus"
+                            }
+                        }
+                    },
+                    "Terminate": {
+                        "type": "Terminate",
+                        "inputs": {
+                            "runStatus": "Failed",
+                            "runError": {
+                                "code": "Error",
+                                "message": "Failure processing workflow"
+                            }
+                        },
+                        "runAfter": {
+                            "Dead-letter_the_message_in_a_queue": [
+                                "SUCCEEDED"
+                            ]
+                        }
+                    }
+                },
+                "runAfter": {
+                    "Try": [
+                        "TIMEDOUT",
+                        "FAILED"
+                    ]
+                }
+            },
+            "Try": {
+                "type": "Scope",
+                "actions": {
+                    "Complete_the_message_in_a_queue": {
+                        "type": "ServiceProvider",
+                        "inputs": {
+                            "parameters": {
+                                "queueName": "@parameters('QueueName')",
+                                "lockToken": "@triggerBody()?['lockToken']"
+                            },
+                            "serviceProviderConfiguration": {
+                                "connectionName": "serviceBus",
+                                "operationId": "completeQueueMessageV2",
+                                "serviceProviderId": "/serviceProviders/serviceBus"
+                            }
+                        }
+                    }
+                },
+                "runAfter": {}
+            }
+        },
+        "contentVersion": "1.0.0.0",
+        "outputs": {},
+        "triggers": {
+            "When_messages_are_available_in_a_queue_(peek-lock)": {
+                "type": "ServiceProvider",
+                "inputs": {
+                    "parameters": {
+                        "queueName": "@parameters('QueueName')"
+                    },
+                    "serviceProviderConfiguration": {
+                        "connectionName": "serviceBus",
+                        "operationId": "peekLockQueueMessagesV2",
+                        "serviceProviderId": "/serviceProviders/serviceBus"
+                    }
+                },
+                "splitOn": "@triggerOutputs()?['body']"
+            }
+        }
+    },
+    "kind": "Stateful"
+}
