@@ -186,3 +186,4 @@ output AZURE_APIM_HOSTNAME string = apiManagement.outputs.apimServiceHostName
 output AZURE_APIM_DEVELOPER_PORTAL string = apiManagement.outputs.apimServiceDeveloperPortalUrl
 output AZURE_WEB_APP_FRONTEND_HOSTNAME string = appServices.outputs.webAppFrontendHostName
 output AZURE_WEB_APP_BACKEND_HOSTNAME string = appServices.outputs.webAppBackendHostName
+output COSMOS_DB_ENDPOINT string = cosmosDb.outputs.cosmosDbUri

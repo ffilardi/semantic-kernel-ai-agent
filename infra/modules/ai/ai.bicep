@@ -178,11 +178,13 @@ module aiFoundryApi '../apim/api/aifoundry-api.bicep' = if (!empty(apimServiceNa
       aiFoundry01.outputs.id
       aiFoundry02.outputs.id
     ]
+    enableLoadBalancing: true
     backendPriorities: [ 1, 1 ]
     backendWeights: [ 50, 50 ]
-    enableLoadBalancing: true
     applicationInsightsLoggerName: applicationInsightsLoggerName
     enableApplicationInsightsDiagnostics: !empty(applicationInsightsLoggerName)
+    enableAzureMonitorDiagnostics: true
+    enableLLMMessages: true
   }
   dependsOn: [
     apimAiFoundry01Rbac

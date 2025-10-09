@@ -6,15 +6,20 @@ param enableLoadBalancing bool = false
 param backendWeights array = []
 param backendPriorities array = []
 param applicationInsightsLoggerName string = ''
-param enableApplicationInsightsDiagnostics bool = true
+param enableApplicationInsightsDiagnostics bool = false
+param enableAzureMonitorDiagnostics bool = false
 param samplingPercentage int = 100
 param logClientIpAddress bool = true
 param alwaysLogErrors bool = true
-param enableCustomMetrics bool = true
 @allowed(['verbose', 'information', 'error'])
 param verbosity string = 'information'
 param payloadBytesToLog int = 8192
 param headersToLog string[] = []
+param enableLLMMessages bool = false
+param logPrompts bool = true
+param maxPromptSizeBytes int = 32768
+param logCompletions bool = true
+param maxCompletionSizeBytes int = 32768
 
 var apiName = 'ai-foundry-api'
 var apiDisplay = 'AI Foundry API'
@@ -111,7 +116,7 @@ resource apiPolicy 'Microsoft.ApiManagement/service/apis/policies@2024-05-01' = 
   dependsOn: enableLoadBalancing ? [backendPool] : [backends]
 }
 
-// Application Insights diagnostics configuration for the API
+// Application Insights diagnostics configuration
 resource apiDiagnostics 'Microsoft.ApiManagement/service/apis/diagnostics@2024-05-01' = if (enableApplicationInsightsDiagnostics && !empty(applicationInsightsLoggerName)) {
   name: 'applicationinsights'
   parent: api
@@ -153,8 +158,65 @@ resource apiDiagnostics 'Microsoft.ApiManagement/service/apis/diagnostics@2024-0
     httpCorrelationProtocol: 'Legacy'
     verbosity: verbosity
     operationNameFormat: 'Name'
-    metrics: enableCustomMetrics
+    metrics: true
     alwaysLog: alwaysLogErrors ? 'allErrors' : 'none'
+  }
+}
+
+// Azure Monitor diagnostics configuration
+resource apiAzureMonitorDiagnostics 'Microsoft.ApiManagement/service/apis/diagnostics@2024-06-01-preview' = if (enableAzureMonitorDiagnostics) {
+  name: 'azuremonitor'
+  parent: api
+  properties: {
+    // Reference the built-in Azure Monitor logger
+    loggerId: '/loggers/azuremonitor'
+    sampling: {
+      samplingType: 'fixed'
+      percentage: samplingPercentage
+    }
+    frontend: {
+      request: {
+        headers: customHeadersToLog
+        body: {
+          bytes: payloadBytesToLog
+        }
+      }
+      response: {
+        headers: customHeadersToLog
+        body: {
+          bytes: payloadBytesToLog
+        }
+      }
+    }
+    backend: {
+      request: {
+        headers: customHeadersToLog
+        body: {
+          bytes: payloadBytesToLog
+        }
+      }
+      response: {
+        headers: customHeadersToLog
+        body: {
+          bytes: payloadBytesToLog
+        }
+      }
+    }
+    logClientIp: logClientIpAddress
+    verbosity: verbosity
+    alwaysLog: alwaysLogErrors ? 'allErrors' : 'none'
+    metrics: true
+    largeLanguageModel: enableLLMMessages ? {
+      logs: 'enabled'
+      requests: logPrompts ? {
+        messages: 'all'
+        maxSizeInBytes: maxPromptSizeBytes
+      } : null
+      responses: logCompletions ? {
+        messages: 'all'
+        maxSizeInBytes: maxCompletionSizeBytes
+      } : null
+    } : null
   }
 }
 
