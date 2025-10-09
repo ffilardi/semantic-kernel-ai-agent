@@ -65,6 +65,10 @@ semantic-kernel-agent/
 │       ├── security/                   # RBAC configurations
 │       └── storage/                    # Storage account
 ├── doc/                                # Documentation
+│   ├── mcp-servers.md                  # MCP server integration guide
+│   ├── features.md                     # Detailed feature documentation
+│   ├── quickstart.md                   # Getting started guide
+│   └── ...                             # Additional documentation
 ├── azure.yaml                          # Azure Developer CLI configuration
 └── README.md
 ```
@@ -105,6 +109,15 @@ APIM acts as an intelligent load balancer for Azure OpenAI model deployments:
 | [APIM Application Insights](doc/apim-app-insights.md) | Application Insights integration setup for API-level logging, sampling, and monitoring configuration |
 | [APIM Azure Monitor](doc/apim-azure-monitor.md) | Azure Monitor integration setup for API-level logging, sampling, and monitoring configuration including LLM messages |
 
+### MCP Integration
+
+The agent extends its capabilities through [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) servers, available for the AI Agent as tools. When used, tools name and parameters are returned and displayed in the user interface after the model response.
+
+For a complete guide to MCP server integration, available servers, and adding new plugins, check the [MCP Servers Guide](doc/mcp-servers.md).
+
+*Example of a model response including the Weather MCP tool result:*
+
+![Azure Resources](doc/images/client-mcp-sample.png)
 
 ## Costs
 
@@ -131,6 +144,7 @@ You can estimate the cost of this project's architecture with [Azure's pricing c
 * [Semantic Kernel Documentation](https://learn.microsoft.com/semantic-kernel/)
 * [Semantic Kernel Python SDK](https://github.com/microsoft/semantic-kernel/tree/main/python)
 * [Model Context Protocol (MCP)](https://modelcontextprotocol.io/)
+* [MCP Server Integration Guide](doc/mcp-servers.md)
 
 **Azure Services:**
 * [Azure Developer CLI (azd)](https://learn.microsoft.com/azure/developer/azure-developer-cli/)
