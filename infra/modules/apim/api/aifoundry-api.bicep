@@ -218,7 +218,6 @@ resource apiAzureMonitorDiagnostics 'Microsoft.ApiManagement/service/apis/diagno
       } : null
     } : null
   }
-
 }
 
 output apiPath string = '${apimService.properties.gatewayUrl}/${apiPath}'
