@@ -13,7 +13,7 @@ Prerequisites:
 - GitHub account.
 
 Steps:
-1. Open the repository in [GitHub Codespaces](https://codespaces.new/ffilardi-insight/semantic-kernel-ai-agent))
+1. Open the repository in [GitHub Codespaces](https://codespaces.new/ffilardi-insight/semantic-kernel-ai-agent)
 2. Configure the settings and create the Codespace (this may take several minutes)
 
 ## VS Code Dev Containers
@@ -25,7 +25,7 @@ Prerequisites:
 
 Steps:
 1. Start Docker Desktop
-2. Open the project in a [VS Code Dev Container](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/ffilardi-insight/semantic-kernel-ai-agent)) (this may take several minutes)
+2. Open the project in a [VS Code Dev Container](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/ffilardi-insight/semantic-kernel-ai-agent) (this may take several minutes)
 
 ## Local Environment
 
