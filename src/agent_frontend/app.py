@@ -19,7 +19,7 @@ backend_url = os.getenv("AGENT_BACKEND_CHAT_URL", "http://127.0.0.1:8000/chat")
 
 # Initialize FastAPI app
 app = FastAPI(title="AI Agent Frontend",
-              description="AI Agent Frontend built on Python/FastAPI",
+              description="AI Agent Frontend built on Semantic Kernel SDK for Python + FastAPI",
               version="0.0.1",
               debug=False)
 
