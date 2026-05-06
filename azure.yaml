@@ -2,13 +2,15 @@ name: sk-agent
 metadata:
   template: azure-ais@0.0.1-beta
 infra:
-    provider: "bicep"
+  provider: "bicep"
 services:
   agent-frontend:
     project: src/agent_frontend/
     language: py
     host: appservice
+    remoteBuild: true
   agent-backend:
     project: src/agent_backend/
     language: py
     host: appservice
+    remoteBuild: true
